@@ -2,134 +2,155 @@
 
 set -e -o pipefail
 
+#Update of the system only if update has been run without problem
+clear
+VERSION=$(cat /etc/debian_version)
+if [[ "$VERSION" = 6.* ]]; then
+	exit;
+fi
+
 # shellcheck source=concurrent.lib.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/concurrent.lib.sh"
 
 success() {
     local args=(
-        - "Creating VM"                                         create_vm    3.0
-        - "Creating ramdisk"                                    my_sleep     0.1
-        - "Enabling swap"                                       my_sleep     0.1
-        - "Populating VM with world data"                       restore_data 5.0
-        - "Spigot: Pulling docker image for build"              my_sleep     0.5
-        - "Spigot: Building JAR"                                my_sleep     6.0
-        - "Pulling remaining docker images"                     my_sleep     2.0
-        - "Launching services"                                  my_sleep     0.2
-
-        --require "Creating VM"
-        --before  "Creating ramdisk"
-        --before  "Enabling swap"
-
-        --require "Creating ramdisk"
-        --before  "Populating VM with world data"
-        --before  "Spigot: Pulling docker image for build"
-
-        --require "Spigot: Pulling docker image for build"
-        --before  "Spigot: Building JAR"
-        --before  "Pulling remaining docker images"
-
-        --require "Populating VM with world data"
-        --require "Spigot: Building JAR"
-        --require "Pulling remaining docker images"
-        --before  "Launching services"
+        - "Updating System"                                UpdateSystem    3.0
+        - "Downloading NRPE"                               DownloadNRPE     0.1
+        - "Installation of NRPE"                           InstallNRPE     0.1
+        - "Installation of IPTables"                       InstallIptables 5.0
+        - "Configuration of NRPE"                          ConfigNRPE     0.5
+        - "Installation of NRPE Plugins"                   NRPEPlugins     6.0
+        - "Configuration of NRPE Plugins"                  ConfigNRPEPlugins     2.0
+        - "Configuration of Sudoers"                       ConfSudoers     0.2
+        - "Copying Scripts for Centreon"                   CopyScripts     0.2
+        - "End of Installation"                            End     0.2
+        --sequential
+        
     )
 
     concurrent "${args[@]}"
 }
 
-failure() {
-    local args=(
-        - "Creating VM"                                         create_vm    3.0
-        - "Creating ramdisk"                                    my_sleep     0.1
-        - "Enabling swap"                                       my_sleep     0.1
-        - "Populating VM with world data"                       restore_data 0.0 64
-        - "Spigot: Pulling docker image for build"              my_sleep     0.5 128
-        - "Spigot: Building JAR"                                my_sleep     6.0
-        - "Pulling remaining docker images"                     my_sleep     2.0
-        - "Launching services"                                  my_sleep     0.2
 
-        --require "Creating VM"
-        --before  "Creating ramdisk"
-        --before  "Enabling swap"
 
-        --require "Creating ramdisk"
-        --before  "Populating VM with world data"
-        --before  "Spigot: Pulling docker image for build"
-
-        --require "Spigot: Pulling docker image for build"
-        --before  "Spigot: Building JAR"
-        --before  "Pulling remaining docker images"
-
-        --require "Populating VM with world data"
-        --require "Spigot: Building JAR"
-        --require "Pulling remaining docker images"
-        --before  "Launching services"
-    )
-
-    concurrent "${args[@]}"
+function UpdateSystem(){
+	echo "Update System" >> logs
+	apt-get update >> logs
+	echo "Install of apps" >> logs	
+	apt-get install autoconf -y >> logs
+	apt-get install automake -y >> logs
+	apt-get install gcc -y >> logs
+	apt-get install libc6 -y >> logs
+	apt-get install libmcrypt-dev -y >> logs
+	apt-get install make -y >> logs
+	apt-get install libssl-dev -y >> logs
+	apt-get install wget -y >> logs
+	apt-get install expect -y >> logs
+	apt-get install htop -y >> logs
+	apt-get install iotop -y >> logs
 }
 
-nesting_success() {
-    local args=(
-        - "Task A1"               my_sleep 2.0
-        - "Task A2"               concurrent
-            -- "Task B1"          concurrent
-                --- "Task C1"     my_sleep 1.0
-                --- "Task C2"     my_sleep 2.0
-            -- "Task B2"          my_sleep 3.0
-        - "Task A3"               my_sleep 4.0
-    )
-
-    concurrent "${args[@]}"
+function DownloadNRPE(){
+	cd /tmp || exit
+	wget --no-check-certificate -q -O nrpe.tar.gz https://github.com/NagiosEnterprises/nrpe/archive/nrpe-3.2.1.tar.gz >>/dev/null 2>logs
+	tar xzf nrpe.tar.gz >> logs
+	cd /tmp/nrpe-nrpe-3.2.1/
 }
 
-nesting_failure() {
-    local args=(
-        - "Task A1"               my_sleep 2.0
-        - "Task A2"               concurrent
-            -- "Task B1"          concurrent
-                --- "Task C1"     my_sleep 1.0
-                --- "Task C2"     my_sleep 2.0 1
-            -- "Task B2"          my_sleep 3.0
-        - "Task A3"               my_sleep 4.0
-    )
-
-    concurrent "${args[@]}"
+function InstallNRPE(){
+	echo "Install BINARIES and more" >> logs
+	./configure --enable-command-args >>/dev/null 2>logs
+	make all >>/dev/null 2>logs
+	make install-groups-users >>/dev/null 2>logs
+	make install >>/dev/null 2>logs
+	make install-config >>/dev/null 2>logs
+	echo >> /etc/services
+	echo '# Nagios services' >> /etc/services
+	echo 'nrpe    5666/tcp' >> /etc/services
+	
+	if [[ "$VERSION" = 7.* ]]; then
+		make install-init >>/dev/null 2>logs
+		update-rc.d nrpe defaults >>/dev/null 2>logs
+	elif [[ "$VERSION" = 8.* ]]; then	
+		make install-init >>/dev/null 2>logs
+		systemctl enable nrpe.service >> logs
+	elif [[ "$VERSION" = 9.* ]]; then
+		make install-init >>/dev/null 2>logs
+		systemctl enable nrpe.service >> logs
+	else
+		exit;
+	fi
 }
 
-many() {
-    local args=()
-    local i
-
-    for (( i = 0; i < 300; i++ )); do
-        args+=(- "Task ${i}" my_sleep $(( RANDOM % 5 + 1 )))
-    done
-
-    concurrent "${args[@]}"
+function InstallIptables(){
+	echo "Install Iptables rules" >> logs
+	iptables -I INPUT -p tcp --destination-port 5666 -j ACCEPT
+	echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections
+	echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections
+	apt-get -y install iptables-persistent >> logs	
 }
 
-create_vm() {
-    local provider=digitalocean
-    echo "(on ${provider})" >&3
-    my_sleep "${@}"
+function ConfigNRPE(){
+	sed -i -r 's/.*allowed_hosts=127.0.0.1.*/allowed_hosts=127.0.0.1,::1,195.135.72.13/g' /usr/local/nagios/etc/nrpe.cfg
+	sed -i -r 's/.*dont_blame_nrpe.*/dont_blame_nrpe=1/g' /usr/local/nagios/etc/nrpe.cfg
+	echo "include=/usr/local/nagios/etc/command_nrpe.cfg" >> /usr/local/nagios/etc/nrpe.cfg
+	
 }
 
-restore_data() {
-    local data_source=dropbox
-    echo "(with ${data_source})" >&3
-    my_sleep "${@}"
+function NRPEPlugins(){
+	echo "Install NRPE plugins for NRPE" >> logs
+	apt-get install bc -y >> logs
+	apt-get install gawk -y >> logs
+	apt-get install dc -y >> logs
+	apt-get install build-essential -y >> logs
+	apt-get install snmp -y >> logs
+	apt-get install libnet-snmp-perl -y >> logs
+	apt-get install gettext -y >> logs
+	cd /tmp || exit
+	wget --no-check-certificate -O nagios-plugins.tar.gz https://github.com/nagios-plugins/nagios-plugins/archive/release-2.2.1.tar.gz >>/dev/null 2>logs
+	tar zxf nagios-plugins.tar.gz >> logs
 }
 
-my_sleep() {
-    local seconds=${1}
-    local code=${2:-0}
-    echo "Yay! Sleeping for ${seconds} second(s)!"
-    sleep "${seconds}"
-    if [ "${code}" -ne 0 ]; then
-        echo "Oh no! Terrible failure!" 1>&2
-    fi
-    return "${code}"
+function ConfigNRPEPlugins(){
+	cd /tmp/nagios-plugins-release-2.2.1/ || exit
+	./tools/setup >>/dev/null 2>logs
+	./configure >>/dev/null 2>logs
+	make >>/dev/null 2>logs
+	make install >>/dev/null 2>logs
+	
+	if [[ "$VERSION" = 7.* ]]; then
+		service nrpe start
+	elif [[ "$VERSION" = 8.* ]]; then
+		systemctl start nrpe.service
+	elif [[ "$VERSION" = 9.* ]]; then
+		systemctl start nrpe.service
+	else
+		exit;
+	fi
+	
 }
+
+function ConfSudoers(){
+	echo "#Rule for nagios/nrpe" >> /etc/sudoers
+	echo "nagios ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+}
+function CopyScripts(){
+	echo "Installation des scripts wazo/xivo" >> logs
+	cd /tmp/ScriptWazoXivoDeploiement || exit
+	cp commandnrpe/command_nrpe.cfg /usr/local/nagios/etc/command_nrpe.cfg
+	cp base/nagisk.pl /usr/local/nagios/libexec/nagisk.pl
+	cp base/check_services_wazo_xivo.pl /usr/local/nagios/libexec/check_services_wazo_xivo.pl
+	cp base/checkversionwazoxivo.sh /usr/local/nagios/libexec/checkversionwazoxivo.sh
+	cp base/checkuptimewazoxivo.sh /usr/local/nagios/libexec/checkuptimewazoxivo.sh
+	cd /usr/local/nagios || exit
+	chmod -R 755 libexec/
+}
+
+function End(){
+	service nrpe restart
+	echo "Finish" >> logs
+}
+
 
 main() {
     if [[ -n "${1}" ]]; then
