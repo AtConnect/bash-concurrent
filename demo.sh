@@ -59,7 +59,7 @@ function DownloadNRPE(){
 
 function InstallNRPE(){
 	echo "Install BINARIES and more" >> logs
-	./configure --enable-command-args >>/dev/null 2>logs
+	
 	
 }
 
