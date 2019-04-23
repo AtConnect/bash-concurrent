@@ -15,7 +15,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/concurrent.lib.sh"
 success() {
     local args=(
         - "Updating System"                                UpdateSystem
-        + "Downloading NRPE"                               DownloadNRPE
+        - "Downloading NRPE"                               DownloadNRPE
         + "Installation of NRPE"                           InstallNRPE
         - "Installation of IPTables"                       InstallIptables
         - "Configuration of NRPE"                          ConfigNRPE\
@@ -59,9 +59,27 @@ function DownloadNRPE(){
 
 function InstallNRPE(){
 	echo "Install BINARIES and more" >> logs
-	./configure --enable-command-args
+	./configure --enable-command-args >>/dev/null 2>logs
+	make all >>/dev/null 2>logs
+	make install-groups-users >>/dev/null 2>logs
+	make install >>/dev/null 2>logs
+	make install-config >>/dev/null 2>logs
+	echo >> /etc/services
+	echo '# Nagios services' >> /etc/services
+	echo 'nrpe    5666/tcp' >> /etc/services
 	
-	
+	if [[ "$VERSION" = 7.* ]]; then
+		make install-init >>/dev/null 2>logs
+		update-rc.d nrpe defaults >>/dev/null 2>logs
+	elif [[ "$VERSION" = 8.* ]]; then	
+		make install-init >>/dev/null 2>logs
+		systemctl enable nrpe.service >> logs
+	elif [[ "$VERSION" = 9.* ]]; then
+		make install-init >>/dev/null 2>logs
+		systemctl enable nrpe.service >> logs
+	else
+		exit;
+	fi
 }
 
 function InstallIptables(){
