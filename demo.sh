@@ -15,8 +15,8 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/concurrent.lib.sh"
 success() {
     local args=(
         - "Updating System"                                UpdateSystem
-        - "Downloading NRPE"                               DownloadNRPE
-        - "Installation of NRPE"                           InstallNRPE
+        + "Downloading NRPE"                               DownloadNRPE
+        + "Installation of NRPE"                           InstallNRPE
         - "Installation of IPTables"                       InstallIptables
         - "Configuration of NRPE"                          ConfigNRPE\
         - "Installation of NRPE Plugins"                   NRPEPlugins\
