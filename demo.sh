@@ -14,16 +14,16 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/concurrent.lib.sh"
 
 success() {
     local args=(
-        - "Updating System"                                UpdateSystem    3.0
-        - "Downloading NRPE"                               DownloadNRPE     0.1
-        - "Installation of NRPE"                           InstallNRPE     0.1
-        - "Installation of IPTables"                       InstallIptables 5.0
-        - "Configuration of NRPE"                          ConfigNRPE     0.5
-        - "Installation of NRPE Plugins"                   NRPEPlugins     6.0
-        - "Configuration of NRPE Plugins"                  ConfigNRPEPlugins     2.0
-        - "Configuration of Sudoers"                       ConfSudoers     0.2
-        - "Copying Scripts for Centreon"                   CopyScripts     0.2
-        - "End of Installation"                            End     0.2
+        - "Updating System"                                UpdateSystem\
+        - "Downloading NRPE"                               DownloadNRPE\
+        - "Installation of NRPE"                           InstallNRPE\
+        - "Installation of IPTables"                       InstallIptables\
+        - "Configuration of NRPE"                          ConfigNRPE\
+        - "Installation of NRPE Plugins"                   NRPEPlugins\
+        - "Configuration of NRPE Plugins"                  ConfigNRPEPlugins\
+        - "Configuration of Sudoers"                       ConfSudoers\
+        - "Copying Scripts for Centreon"                   CopyScripts\
+        - "End of Installation"                            End\
         --sequential
         
     )
